@@ -417,7 +417,7 @@ export default function Home() {
       <div className="m-layout">
         <header className="topbar">
           <button className="menu-btn" onClick={() => setDrawerOpen(true)} aria-label="메뉴">☰</button>
-          <span className="topbar-title">🍚 Lunch Friend</span>
+          <span className="topbar-title">🍚 Lunch Mate</span>
           <span className="topbar-spacer" />
         </header>
 
@@ -430,7 +430,7 @@ export default function Home() {
           <div className="overlay" onClick={() => setDrawerOpen(false)}>
             <aside className="drawer" onClick={(e) => e.stopPropagation()}>
               <div className="drawer-head">
-                <h1 className="brand">🍚 Lunch Friend</h1>
+                <h1 className="brand">🍚 Lunch Mate</h1>
                 <button className="close" onClick={() => setDrawerOpen(false)}>✕</button>
               </div>
               {controls}
@@ -473,7 +473,7 @@ export default function Home() {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <h1 className="brand">🍚 Lunch Friend</h1>
+        <h1 className="brand">🍚 Lunch Mate</h1>
         {controls}
       </aside>
       <main className="main">
