@@ -11,7 +11,7 @@ export async function GET() {
 export async function PUT(request) {
   const body = await request.json()
   // Only persist the known top-level keys.
-  const { members = [], schedule = {}, history = [] } = body || {}
-  const saved = await setState({ members, schedule, history })
+  const { members = [], schedule = {}, memos = [] } = body || {}
+  const saved = await setState({ members, schedule, memos })
   return NextResponse.json(saved)
 }
