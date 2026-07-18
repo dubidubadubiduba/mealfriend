@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const state = await getState()
-  return NextResponse.json(state)
+  const storage = (!!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN) ? 'redis' : 'file'
+  return NextResponse.json({ ...state, _storage: storage })
 }
 
 export async function PUT(request) {
