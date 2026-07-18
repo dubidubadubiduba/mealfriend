@@ -341,11 +341,11 @@ export default function Home() {
             >
               <div className="daynum">{d}</div>
               {isMobile ? (
-                <div className="dots">
+                <div className="chips">
                   {ids.map((id) => {
                     const m = memberById[id]
                     if (!m) return null
-                    return <span key={id} className="dot" style={{ background: m.color }} />
+                    return <span key={id} className="chip" style={{ background: m.color }}>{m.name}</span>
                   })}
                 </div>
               ) : (
