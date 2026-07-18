@@ -6,7 +6,6 @@ import { WEEKDAYS, dateKey, monthGrid, monthLabel } from '@/lib/dates'
 
 const MAX_MEMBERS = 9
 
-// Small stable id without external deps.
 function makeId() {
   return 'm' + Math.random().toString(36).slice(2, 9)
 }
@@ -22,11 +21,11 @@ export default function Home() {
 
   const [selectedId, setSelectedId] = useState(null)
   const [newName, setNewName] = useState('')
-  const [newColor, setNewColor] = useState('') // '' = auto (next available)
+  const [newColor, setNewColor] = useState('')
 
   // Recurring form
   const [recMember, setRecMember] = useState('')
-  const [recDays, setRecDays] = useState([]) // weekday indexes 0-6
+  const [recDays, setRecDays] = useState([])
   const [recStart, setRecStart] = useState('')
   const [recEnd, setRecEnd] = useState('')
 
@@ -34,10 +33,14 @@ export default function Home() {
   const [memoAuthor, setMemoAuthor] = useState('')
   const [memoText, setMemoText] = useState('')
 
+  // Save state
+  const [isDirty, setIsDirty] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
+
   // Mobile-specific UI state
   const [isMobile, setIsMobile] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [sheetKey, setSheetKey] = useState(null) // day whose bottom-sheet is open
+  const [sheetKey, setSheetKey] = useState(null)
 
   // ---- responsive detection ----
   useEffect(() => {
@@ -60,21 +63,32 @@ export default function Home() {
       .finally(() => setLoading(false))
   }, [])
 
-  // ---- persist helper (saves whole doc) ----
-  function persist(patch) {
-    const next = {
-      members: patch.members ?? members,
-      schedule: patch.schedule ?? schedule,
-      memos: patch.memos ?? memos,
-    }
-    if (patch.members) setMembers(patch.members)
-    if (patch.schedule) setSchedule(patch.schedule)
-    if (patch.memos) setMemos(patch.memos)
+  // ---- local state update only (no network) ----
+  function update(patch) {
+    if (patch.members !== undefined) setMembers(patch.members)
+    if (patch.schedule !== undefined) setSchedule(patch.schedule)
+    if (patch.memos !== undefined) setMemos(patch.memos)
+    setIsDirty(true)
+    setSaveStatus('idle')
+  }
+
+  // ---- save to server ----
+  function save() {
+    setSaveStatus('saving')
     fetch('/api/state', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(next),
+      body: JSON.stringify({ members, schedule, memos }),
     })
+      .then((r) => {
+        if (!r.ok) throw new Error()
+        setSaveStatus('saved')
+        setIsDirty(false)
+        setTimeout(() => setSaveStatus('idle'), 2000)
+      })
+      .catch(() => {
+        setSaveStatus('error')
+      })
   }
 
   const memberById = useMemo(() => {
@@ -92,7 +106,7 @@ export default function Home() {
       return
     }
     const m = { id: makeId(), name, color: newColor || nextColor(members) }
-    persist({ members: [...members, m] })
+    update({ members: [...members, m] })
     setNewName('')
     setNewColor('')
   }
@@ -108,7 +122,7 @@ export default function Home() {
     }
     if (selectedId === id) setSelectedId(null)
     if (memoAuthor === id) setMemoAuthor('')
-    persist({ members: members.filter((x) => x.id !== id), schedule: nextSchedule })
+    update({ members: members.filter((x) => x.id !== id), schedule: nextSchedule })
   }
 
   // ---- cell ops ----
@@ -116,7 +130,7 @@ export default function Home() {
     const ids = schedule[key] || []
     if (ids.includes(memberId)) return
     if (ids.length >= MAX_MEMBERS) return
-    persist({ schedule: { ...schedule, [key]: [...ids, memberId] } })
+    update({ schedule: { ...schedule, [key]: [...ids, memberId] } })
   }
 
   function removeFromCell(key, memberId) {
@@ -125,7 +139,7 @@ export default function Home() {
     const next = { ...schedule }
     if (filtered.length) next[key] = filtered
     else delete next[key]
-    persist({ schedule: next })
+    update({ schedule: next })
   }
 
   function toggleMemberOnDay(key, memberId) {
@@ -136,7 +150,7 @@ export default function Home() {
 
   function onCellClick(key) {
     if (isMobile) {
-      setSheetKey(key) // open the day sheet
+      setSheetKey(key)
       return
     }
     if (!selectedId) return
@@ -151,7 +165,7 @@ export default function Home() {
     cells.forEach((d) => {
       next[dateKey(view.year, view.month, d)] = members.map((m) => m.id)
     })
-    persist({ schedule: next })
+    update({ schedule: next })
   }
 
   function clearMonth() {
@@ -159,7 +173,7 @@ export default function Home() {
     const cells = monthGrid(view.year, view.month).filter(Boolean)
     const next = { ...schedule }
     cells.forEach((d) => delete next[dateKey(view.year, view.month, d)])
-    persist({ schedule: next })
+    update({ schedule: next })
   }
 
   // ---- recurring ----
@@ -182,7 +196,7 @@ export default function Home() {
         count++
       }
     }
-    persist({ schedule: next })
+    update({ schedule: next })
     alert(`${count}일에 배치했습니다.`)
   }
 
@@ -202,12 +216,12 @@ export default function Home() {
       color: m ? m.color : '#e2e5ea',
       text,
     }
-    persist({ memos: [memo, ...memos].slice(0, 100) })
+    update({ memos: [memo, ...memos].slice(0, 100) })
     setMemoText('')
   }
 
   function removeMemo(id) {
-    persist({ memos: memos.filter((x) => x.id !== id) })
+    update({ memos: memos.filter((x) => x.id !== id) })
   }
 
   // ---- month nav ----
@@ -225,7 +239,27 @@ export default function Home() {
 
   if (loading) return <div className="loading">불러오는 중…</div>
 
-  // ---------- shared control panels (desktop sidebar & mobile drawer) ----------
+  // ---- save button ----
+  const saveLabel =
+    saveStatus === 'saving' ? '저장 중…' :
+    saveStatus === 'saved'  ? '저장됨 ✓' :
+    saveStatus === 'error'  ? '오류 ✕' :
+    isDirty                 ? '저장하기 ●' : '저장하기'
+
+  const saveBtn = (
+    <button
+      className={'btn save-btn' +
+        (saveStatus === 'saved' ? ' save-ok' : '') +
+        (saveStatus === 'error' ? ' save-err' : '') +
+        (!isDirty && saveStatus === 'idle' ? ' save-dim' : '')}
+      onClick={save}
+      disabled={saveStatus === 'saving'}
+    >
+      {saveLabel}
+    </button>
+  )
+
+  // ---------- shared control panels ----------
   const controls = (
     <>
       <section className="panel">
@@ -419,6 +453,7 @@ export default function Home() {
           <button className="menu-btn" onClick={() => setDrawerOpen(true)} aria-label="메뉴">☰</button>
           <span className="topbar-title">🍚 Lunch Mate</span>
           <span className="topbar-spacer" />
+          {saveBtn}
         </header>
 
         <main className="m-main">
@@ -477,6 +512,9 @@ export default function Home() {
         {controls}
       </aside>
       <main className="main">
+        <div className="main-topbar">
+          {saveBtn}
+        </div>
         {calendar}
         {memoSection}
       </main>

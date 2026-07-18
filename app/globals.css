@@ -128,7 +128,14 @@ select { margin-bottom: 8px; }
 .memo-del { border: none; background: transparent; color: var(--muted); cursor: pointer; flex-shrink: 0; }
 .memo-del:hover { color: #d33; }
 
+/* ================= Save button ================= */
+.save-btn { min-width: 96px; transition: background .2s; }
+.save-dim { background: #c5cad4; }
+.save-ok  { background: #16a34a; }
+.save-err { background: #dc2626; }
+
 /* ================= Desktop layout ================= */
+.main-topbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .layout { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
 .sidebar {
   background: var(--panel); border-right: 1px solid var(--line);
