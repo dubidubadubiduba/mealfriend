@@ -206,7 +206,7 @@ export default function Home() {
     setRecDays((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
   }
 
-  // ---- memo ops ----
+  // ---- memo ops (auto-save immediately) ----
   function addMemo() {
     const text = memoText.trim()
     if (!text) return
@@ -218,12 +218,24 @@ export default function Home() {
       color: m ? m.color : '#e2e5ea',
       text,
     }
-    update({ memos: [memo, ...memos].slice(0, 100) })
+    const nextMemos = [memo, ...memos].slice(0, 100)
+    setMemos(nextMemos)
     setMemoText('')
+    fetch('/api/state', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ members, schedule, memos: nextMemos }),
+    })
   }
 
   function removeMemo(id) {
-    update({ memos: memos.filter((x) => x.id !== id) })
+    const nextMemos = memos.filter((x) => x.id !== id)
+    setMemos(nextMemos)
+    fetch('/api/state', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ members, schedule, memos: nextMemos }),
+    })
   }
 
   // ---- month nav ----
