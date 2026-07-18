@@ -97,6 +97,13 @@ select { margin-bottom: 8px; }
 .cell.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .empty-cell { background: transparent; border: none; }
 .daynum { font-size: 12px; color: var(--muted); font-weight: 600; }
+.daynum.red { color: #e05252; }
+.rest-cell { background: #fdf4f4; }
+.family-day-badge {
+  font-size: 9px; font-weight: 700; color: #7c3aed;
+  background: #ede9fe; border-radius: 4px; padding: 1px 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
 .chip {

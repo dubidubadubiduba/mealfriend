@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PALETTE, nextColor } from '@/lib/colors'
 import { WEEKDAYS, dateKey, monthGrid, monthLabel } from '@/lib/dates'
+import { isRest, isWeekend, isHoliday, fourthFriday } from '@/lib/holidays'
 
 const MAX_MEMBERS = 9
 
@@ -163,6 +164,7 @@ export default function Home() {
     const cells = monthGrid(view.year, view.month).filter(Boolean)
     const next = { ...schedule }
     cells.forEach((d) => {
+      if (isRest(view.year, view.month, d)) return
       next[dateKey(view.year, view.month, d)] = members.map((m) => m.id)
     })
     update({ schedule: next })
@@ -236,6 +238,7 @@ export default function Home() {
 
   const cells = monthGrid(view.year, view.month)
   const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate())
+  const familyDay = fourthFriday(view.year, view.month)
 
   if (loading) return <div className="loading">불러오는 중…</div>
 
@@ -367,13 +370,16 @@ export default function Home() {
           const key = dateKey(view.year, view.month, d)
           const ids = schedule[key] || []
           const isToday = key === todayKey
+          const rest = isRest(view.year, view.month, d)
+          const isFamilyDay = d === familyDay
           return (
             <div
               key={idx}
-              className={'cell' + (isToday ? ' today' : '') + (!isMobile && selectedId ? ' placing' : '')}
+              className={'cell' + (isToday ? ' today' : '') + (rest ? ' rest-cell' : '') + (!isMobile && selectedId ? ' placing' : '')}
               onClick={() => onCellClick(key)}
             >
-              <div className="daynum">{d}</div>
+              <div className={'daynum' + (rest ? ' red' : '')}>{d}</div>
+              {isFamilyDay && <div className="family-day-badge">Family Day</div>}
               {isMobile ? (
                 <div className="chips">
                   {ids.map((id) => {
