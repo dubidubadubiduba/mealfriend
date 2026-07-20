@@ -12,7 +12,10 @@ export async function GET() {
 export async function PUT(request) {
   const body = await request.json()
   // Only persist the known top-level keys.
-  const { members = [], schedule = {}, memos = [] } = body || {}
-  const saved = await setState({ members, schedule, memos })
-  return NextResponse.json(saved)
+  const { members = [], schedule = {}, memos = [], version } = body || {}
+  const result = await setState({ members, schedule, memos }, version)
+  if (result.conflict) {
+    return NextResponse.json(result.state, { status: 409 })
+  }
+  return NextResponse.json(result.state)
 }

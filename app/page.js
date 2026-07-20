@@ -16,6 +16,7 @@ export default function Home() {
   const [members, setMembers] = useState([])
   const [schedule, setSchedule] = useState({})
   const [memos, setMemos] = useState([])
+  const [version, setVersion] = useState(0)
 
   const today = useMemo(() => new Date(), [])
   const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() })
@@ -36,7 +37,7 @@ export default function Home() {
 
   // Save state
   const [isDirty, setIsDirty] = useState(false)
-  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
+  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error' | 'conflict'
 
   // Mobile-specific UI state
   const [isMobile, setIsMobile] = useState(false)
@@ -60,6 +61,7 @@ export default function Home() {
         setMembers(s.members || [])
         setSchedule(s.schedule || {})
         setMemos(s.memos || [])
+        setVersion(s.version || 0)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -73,23 +75,37 @@ export default function Home() {
     setSaveStatus('idle')
   }
 
+  // ---- push a snapshot to the server, guarded by the version we last saw ----
+  // If someone else saved in the meantime, the server rejects this (409)
+  // instead of silently overwriting their changes.
+  function pushState(next) {
+    return fetch('/api/state', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...next, version }),
+    }).then(async (r) => {
+      if (r.status === 409) return { ok: false, conflict: true }
+      if (!r.ok) return { ok: false, conflict: false }
+      const saved = await r.json()
+      setVersion(saved.version)
+      return { ok: true }
+    }).catch(() => ({ ok: false, conflict: false }))
+  }
+
   // ---- save to server ----
   function save() {
     setSaveStatus('saving')
-    fetch('/api/state', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ members, schedule, memos }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error()
+    pushState({ members, schedule, memos }).then((result) => {
+      if (result.ok) {
         setSaveStatus('saved')
         setIsDirty(false)
         setTimeout(() => setSaveStatus('idle'), 2000)
-      })
-      .catch(() => {
+      } else if (result.conflict) {
+        setSaveStatus('conflict')
+      } else {
         setSaveStatus('error')
-      })
+      }
+    })
   }
 
   const memberById = useMemo(() => {
@@ -218,23 +234,27 @@ export default function Home() {
       color: m ? m.color : '#e2e5ea',
       text,
     }
+    const prevMemos = memos
     const nextMemos = [memo, ...memos].slice(0, 100)
     setMemos(nextMemos)
     setMemoText('')
-    fetch('/api/state', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ members, schedule, memos: nextMemos }),
+    pushState({ members, schedule, memos: nextMemos }).then((result) => {
+      if (!result.ok) {
+        setMemos(prevMemos)
+        if (result.conflict) alert('다른 사람이 방금 저장했어요. 새로고침 후 다시 시도해주세요.')
+      }
     })
   }
 
   function removeMemo(id) {
+    const prevMemos = memos
     const nextMemos = memos.filter((x) => x.id !== id)
     setMemos(nextMemos)
-    fetch('/api/state', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ members, schedule, memos: nextMemos }),
+    pushState({ members, schedule, memos: nextMemos }).then((result) => {
+      if (!result.ok) {
+        setMemos(prevMemos)
+        if (result.conflict) alert('다른 사람이 방금 저장했어요. 새로고침 후 다시 시도해주세요.')
+      }
     })
   }
 
@@ -256,19 +276,22 @@ export default function Home() {
 
   // ---- save button ----
   const saveLabel =
-    saveStatus === 'saving' ? '저장 중…' :
-    saveStatus === 'saved'  ? '저장됨 ✓' :
-    saveStatus === 'error'  ? '오류 ✕' :
-    isDirty                 ? '저장하기 ●' : '저장하기'
+    saveStatus === 'saving'   ? '저장 중…' :
+    saveStatus === 'saved'    ? '저장됨 ✓' :
+    saveStatus === 'conflict' ? '새로고침 필요 ⟳' :
+    saveStatus === 'error'    ? '오류 ✕' :
+    isDirty                   ? '저장하기 ●' : '저장하기'
 
   const saveBtn = (
     <button
       className={'btn save-btn' +
         (saveStatus === 'saved' ? ' save-ok' : '') +
         (saveStatus === 'error' ? ' save-err' : '') +
+        (saveStatus === 'conflict' ? ' save-conflict' : '') +
         (!isDirty && saveStatus === 'idle' ? ' save-dim' : '')}
-      onClick={save}
+      onClick={saveStatus === 'conflict' ? () => window.location.reload() : save}
       disabled={saveStatus === 'saving'}
+      title={saveStatus === 'conflict' ? '다른 사람이 방금 저장했어요. 눌러서 최신 내용을 불러오세요.' : undefined}
     >
       {saveLabel}
     </button>

@@ -140,6 +140,7 @@ select { margin-bottom: 8px; }
 .save-dim { background: #c5cad4; }
 .save-ok  { background: #16a34a; }
 .save-err { background: #dc2626; }
+.save-conflict { background: #d97706; }
 
 /* ================= Desktop layout ================= */
 .main-topbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
